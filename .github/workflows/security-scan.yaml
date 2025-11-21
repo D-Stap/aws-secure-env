@@ -1,0 +1,75 @@
+name: ci-cd-security-validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  security-scans:
+    name: Run Static Security Scans
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Semgrep
+        run: |
+          pip install semgrep
+
+      - name: Semgrep Scan (Python)
+        run: |
+          semgrep --config p/ci --error
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform Format
+        run: |
+         terraform fmt -check -recursive
+           
+      - name: TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          tflint
+
+      - name: Terraform Init
+        run: |  
+          terraform init
+      - name: Terraform Validate
+        run: |
+          terraform validate
+
+      - name: Install Checkov
+        run: |
+          pip install checkov
+
+      - name: Checkov Scan (Terraform)
+        run: |
+          checkov -d .
+
+      - name: Install tfsec
+        run: |
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+
+      - name: tfsec Scan (Terraform)
+        run: |
+          tfsec .
+
+      - name: Scan K8s Manifests with Checkov
+        run: |
+          checkov -d ./k8s
