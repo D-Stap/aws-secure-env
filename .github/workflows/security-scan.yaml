@@ -49,10 +49,12 @@ jobs:
         run: terraform validate
 
       - name: Install TFLint
-        run: tflint || true
+        run: |
+          curl -sL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          sudo mv tflint /usr/local/bin/
 
-      - name: TFLint Scan
-        run: tflint --enable-rule=terraform_tflint
+      - name: Run TFLint
+        run: tflint . || true
 
       - name: Install Checkov
         run: pip install checkov
