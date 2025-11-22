@@ -1,0 +1,65 @@
+name: ci-cd-security-validation
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  security-scans:
+    name: Terraform + Static Security Scans
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: enviorments/dev
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Semgrep Scan (Terraform Ruleset)
+        run: semgrep --config "p/terraform" --error .
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Checkov Scan
+        run: checkov -d . --soft-fail
+
+      - name: Install tfsec
+        run: |
+          curl -L https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o tfsec
+          chmod +x tfsec
+          sudo mv tfsec /usr/local/bin/
+
+      - name: tfsec Scan (Terraform)
+        run: |
+          tfsec . || true
+
